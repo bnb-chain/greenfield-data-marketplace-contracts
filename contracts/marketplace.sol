@@ -15,14 +15,13 @@ contract Marketplace is ReentrancyGuard, GroupApp {
 
     /*----------------- system contracts -----------------*/
     address public groupToken;
-    address public memberToken;
 
     /*----------------- storage -----------------*/
     // admins
     mapping(address => bool) public operators;
 
     // group ID => item price
-    mapping(uint256 => uint256) prices;
+    mapping(uint256 => uint256) public prices;
     // address => uncliamed amount
     mapping(address => uint256) public unclaimedFunds;
 
@@ -63,7 +62,6 @@ contract Marketplace is ReentrancyGuard, GroupApp {
 
         tax = _tax;
         groupToken = IGroupHub(_groupHub).ERC721Token();
-        memberToken = IGroupHub(_groupHub).ERC1155Token();
 
         __base_app_init_unchained(_crossChain, _callbackGasLimit, _refundAddress, _failureHandleStrategy);
         __group_app_init_unchained(_groupHub);
