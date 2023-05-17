@@ -152,7 +152,7 @@ contract MarketPlace is ReentrancyGuard, GroupApp {
     function _buy(address _owner, uint256 groupId, address buyer) internal {
         address[] memory members = new address[](1);
         members[0] = buyer;
-        _updateGroup(_owner, groupId, UPDATE_ADD, members, "");
+        _updateGroup(_owner, groupId, GroupStorage.UpdateGroupOpType.AddMembers, members, "");
     }
 
     function _isOperator(address account) internal view returns (bool) {
