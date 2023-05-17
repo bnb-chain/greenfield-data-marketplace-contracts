@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../lib/RLPDecode.sol";
 import "../lib/RLPEncode.sol";
 
-contract MarketPlace is ReentrancyGuard, GroupApp {
+contract Marketplace is ReentrancyGuard, GroupApp {
     using RLPDecode for *;
     using RLPEncode for *;
 
@@ -109,7 +109,8 @@ contract MarketPlace is ReentrancyGuard, GroupApp {
         uint256 amount = unclaimedFunds[msg.sender];
         require(amount > 0, "MarketPlace: no unclaimed funds");
         unclaimedFunds[msg.sender] = 0;
-        payable(msg.sender).transfer(amount);
+        (bool success,) = msg.sender.call{value: amount}("");
+        require(success, "MarketPlace: claim failed");
     }
 
     /*----------------- admin functions -----------------*/
@@ -132,7 +133,7 @@ contract MarketPlace is ReentrancyGuard, GroupApp {
     }
 
     function setTax(uint256 _tax) external onlyOperator {
-        require(_tax < 10000, "MarketPlace: invalid tax");
+        require(_tax < 10_000, "MarketPlace: invalid tax");
         tax = _tax;
     }
 
@@ -159,10 +160,12 @@ contract MarketPlace is ReentrancyGuard, GroupApp {
         return operators[account];
     }
 
-    function _groupGreenfieldCall(uint32 status, uint8 operationType, uint256 resourceId, bytes calldata callbackData)
-        internal
-        override
-    {
+    function _groupGreenfieldCall(
+        uint32 status,
+        uint8 operationType,
+        uint256 resourceId,
+        bytes calldata callbackData
+    ) internal override {
         if (operationType == TYPE_UPDATE) {
             _updateGroupCallback(status, resourceId, callbackData);
         } else {
@@ -177,7 +180,7 @@ contract MarketPlace is ReentrancyGuard, GroupApp {
         }
 
         if (_status == STATUS_SUCCESS) {
-            uint256 taxAmount = (price * tax) / 10000;
+            uint256 taxAmount = (price * tax) / 10_000;
             unclaimedFunds[owner] += price - taxAmount;
             emit Buy(buyer, _tokenId);
         } else {
