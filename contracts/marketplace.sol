@@ -91,15 +91,26 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     function delist(uint256 groupId) external onlyGroupOwner(groupId) {
+        require(prices[groupId] > 0, "MarketPlace: not listed");
         delete prices[groupId];
         emit Delist(msg.sender, groupId);
     }
 
     function buy(uint256 groupId) external payable {
+        require(prices[groupId] > 0, "MarketPlace: not listed");
+        require(msg.value >= prices[groupId]+_getTotalFee(), "MarketPlace: insufficient fund");
+
         _buy(groupId);
     }
 
     function buyBatch(uint256[] calldata groupIds) external payable {
+        uint256 totalPrice;
+        for (uint256 i = 0; i < groupIds.length; i++) {
+            require(prices[groupIds[i]] > 0, "MarketPlace: not listed");
+            totalPrice += prices[groupIds[i]];
+        }
+        require(msg.value >= totalPrice+_getTotalFee(), "MarketPlace: insufficient fund");
+
         for (uint256 i = 0; i < groupIds.length; i++) {
             _buy(groupIds[i]);
         }
@@ -151,10 +162,6 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     function _buy(uint256 groupId) internal {
         address buyer = msg.sender;
         require(IERC1155NonTransferable(memberToken).balanceOf(buyer, groupId) == 0, "MarketPlace: already purchased");
-
-        uint256 price = prices[groupId];
-        require(price > 0, "MarketPlace: not for sale");
-        require(msg.value == price, "MarketPlace: wrong price");
 
         address _owner = IERC721NonTransferable(groupToken).ownerOf(groupId);
         address[] memory members = new address[](1);
