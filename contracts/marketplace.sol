@@ -3,47 +3,46 @@ pragma solidity ^0.8.0;
 
 import "@bnb-chain/greenfield-contracts-sdk/GroupApp.sol";
 import "@bnb-chain/greenfield-contracts-sdk/interface/IERC721NonTransferable.sol";
+import "@bnb-chain/greenfield-contracts-sdk/interface/IERC1155NonTransferable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../lib/RLPDecode.sol";
 import "../lib/RLPEncode.sol";
 
-contract Marketplace is ReentrancyGuard, GroupApp {
+contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     using RLPDecode for *;
     using RLPEncode for *;
 
+    /*----------------- constants -----------------*/
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+
     /*----------------- system contracts -----------------*/
     address public groupToken;
+    address public memberToken;
 
     /*----------------- storage -----------------*/
-    // admins
-    mapping(address => bool) public operators;
-
     // group ID => item price
     mapping(uint256 => uint256) public prices;
     // address => uncliamed amount
     mapping(address => uint256) public unclaimedFunds;
 
-    uint256 public tax; // 10000 = 100%
+    uint256 public transferGasLimit; // 2300 for now
+    uint256 public feeRate; // 10000 = 100%
+
+    address fundWallet;
 
     // placeHolder reserved for future usage
-    uint256[50] public reservedSlots;
+    uint256[50] _reservedSlots;
 
     /*----------------- event/modifier -----------------*/
     event List(address indexed owner, uint256 indexed groupId, uint256 price);
     event Delist(address indexed owner, uint256 indexed groupId);
     event Buy(address indexed buyer, uint256 indexed groupId);
     event BuyFailed(address indexed buyer, uint256 indexed groupId);
-    event AddOperator(address indexed operator);
-    event RemoveOperator(address indexed operator);
 
-    modifier onlyOwner(uint256 groupId) {
-        require(msg.sender == IERC721NonTransferable(groupToken).ownerOf(groupId), "MarketPlace: only owner");
-        _;
-    }
-
-    modifier onlyOperator() {
-        require(_isOperator(msg.sender), "MarketPlace: only operator");
+    modifier onlyGroupOwner(uint256 groupId) {
+        require(msg.sender == IERC721NonTransferable(groupToken).ownerOf(groupId), "MarketPlace: only group owner");
         _;
     }
 
@@ -51,18 +50,21 @@ contract Marketplace is ReentrancyGuard, GroupApp {
         address _crossChain,
         address _groupHub,
         uint256 _callbackGasLimit,
-        address _refundAddress,
         uint8 _failureHandleStrategy,
-        address _operator,
-        uint256 _tax
+        uint256 _feeRate,
+        address _initAdmin,
+        address _fundWallet
     ) public initializer {
-        require(_operator != address(0), "MarketPlace: invalid operator");
-        operators[_operator] = true;
+        require(_initAdmin != address(0), "MarketPlace: invalid admin address");
+        _grantRole(DEFAULT_ADMIN_ROLE, _initAdmin);
 
-        tax = _tax;
+        transferGasLimit = 2300;
+        feeRate = _feeRate;
+        fundWallet = _fundWallet;
         groupToken = IGroupHub(_groupHub).ERC721Token();
+        memberToken = IGroupHub(_groupHub).ERC1155Token();
 
-        __base_app_init_unchained(_crossChain, _callbackGasLimit, _refundAddress, _failureHandleStrategy);
+        __base_app_init_unchained(_crossChain, _callbackGasLimit, _failureHandleStrategy);
         __group_app_init_unchained(_groupHub);
     }
 
@@ -83,23 +85,24 @@ contract Marketplace is ReentrancyGuard, GroupApp {
         }
     }
 
-    function list(uint256 groupId, uint256 price) external onlyOwner(groupId) {
+    function list(uint256 groupId, uint256 price) external onlyGroupOwner(groupId) {
         prices[groupId] = price;
         emit List(msg.sender, groupId, price);
     }
 
-    function delist(uint256 groupId) external onlyOwner(groupId) {
+    function delist(uint256 groupId) external onlyGroupOwner(groupId) {
         delete prices[groupId];
         emit Delist(msg.sender, groupId);
     }
 
     function buy(uint256 groupId) external payable {
-        uint256 price = prices[groupId];
-        require(price > 0, "MarketPlace: not for sale");
-        require(msg.value == price, "MarketPlace: wrong price");
+        _buy(groupId);
+    }
 
-        address _owner = IERC721NonTransferable(groupToken).ownerOf(groupId);
-        _buy(_owner, groupId, msg.sender);
+    function buyBatch(uint256[] calldata groupIds) external payable {
+        for (uint256 i = 0; i < groupIds.length; i++) {
+            _buy(groupIds[i]);
+        }
     }
 
     function claim() external nonReentrant {
@@ -111,50 +114,52 @@ contract Marketplace is ReentrancyGuard, GroupApp {
     }
 
     /*----------------- admin functions -----------------*/
-    function addOperator(address newOperator) public onlyOperator {
-        operators[newOperator] = true;
-        emit AddOperator(newOperator);
+    function addOperator(address newOperator) external {
+        grantRole(OPERATOR_ROLE, newOperator);
     }
 
-    function removeOperator(address operator) public onlyOperator {
-        delete operators[operator];
-        emit RemoveOperator(operator);
+    function removeOperator(address operator) external {
+        revokeRole(OPERATOR_ROLE, operator);
     }
 
-    function retryPackage(uint8) external override onlyOperator {
+    function setFundWallet(address _fundWallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        fundWallet = _fundWallet;
+    }
+
+    function retryPackage(uint8) external override onlyRole(OPERATOR_ROLE) {
         _retryGroupPackage();
     }
 
-    function skipPackage(uint8) external override onlyOperator {
+    function skipPackage(uint8) external override onlyRole(OPERATOR_ROLE) {
         _skipGroupPackage();
     }
 
-    function setTax(uint256 _tax) external onlyOperator {
-        require(_tax < 10_000, "MarketPlace: invalid tax");
-        tax = _tax;
+    function setFeeRate(uint256 _feeRate) external onlyRole(OPERATOR_ROLE) {
+        require(_feeRate < 10_000, "MarketPlace: invalid feeRate");
+        feeRate = _feeRate;
     }
 
-    function setCallbackGasLimit(uint256 _callbackGasLimit) external onlyOperator {
+    function setCallbackGasLimit(uint256 _callbackGasLimit) external onlyRole(OPERATOR_ROLE) {
         _setCallbackGasLimit(_callbackGasLimit);
     }
 
-    function setRefundAddress(address _refundAddress) external onlyOperator {
-        _setRefundAddress(_refundAddress);
-    }
-
-    function setFailureHandleStrategy(uint8 _failureHandleStrategy) external onlyOperator {
+    function setFailureHandleStrategy(uint8 _failureHandleStrategy) external onlyRole(OPERATOR_ROLE) {
         _setFailureHandleStrategy(_failureHandleStrategy);
     }
 
     /*----------------- internal functions -----------------*/
-    function _buy(address _owner, uint256 groupId, address buyer) internal {
+    function _buy(uint256 groupId) internal {
+        address buyer = msg.sender;
+        require(IERC1155NonTransferable(memberToken).balanceOf(buyer, groupId) == 0, "MarketPlace: already purchased");
+
+        uint256 price = prices[groupId];
+        require(price > 0, "MarketPlace: not for sale");
+        require(msg.value == price, "MarketPlace: wrong price");
+
+        address _owner = IERC721NonTransferable(groupToken).ownerOf(groupId);
         address[] memory members = new address[](1);
         members[0] = buyer;
-        _updateGroup(_owner, groupId, GroupStorage.UpdateGroupOpType.AddMembers, members, "");
-    }
-
-    function _isOperator(address account) internal view returns (bool) {
-        return operators[account];
+        _updateGroup(_owner, groupId, GroupStorage.UpdateGroupOpType.AddMembers, members, buyer, _encodeCallbackData(_owner, buyer, prices[groupId]));
     }
 
     function _groupGreenfieldCall(
@@ -171,17 +176,24 @@ contract Marketplace is ReentrancyGuard, GroupApp {
     }
 
     function _updateGroupCallback(uint32 _status, uint256 _tokenId, bytes memory _callbackData) internal override {
-        (address owner, address buyer, uint256 price, bool success) = _decodeCallbackData(_callbackData);
-        if (!success) {
+        (address owner, address buyer, uint256 price, bool ok) = _decodeCallbackData(_callbackData);
+        if (!ok) {
             revert("MarketPlace: invalid callback data");
         }
 
         if (_status == STATUS_SUCCESS) {
-            uint256 taxAmount = (price * tax) / 10_000;
-            unclaimedFunds[owner] += price - taxAmount;
+            uint256 feeRateAmount = (price * feeRate) / 10_000;
+            payable(fundWallet).transfer(feeRateAmount);
+            (bool success, ) = payable(owner).call{gas: transferGasLimit, value: price - feeRateAmount}("");
+            if (!success) {
+                unclaimedFunds[owner] += price - feeRateAmount;
+            }
             emit Buy(buyer, _tokenId);
         } else {
-            unclaimedFunds[buyer] += price;
+            (bool success, ) = payable(buyer).call{gas: transferGasLimit, value: price}("");
+            if (!success) {
+                unclaimedFunds[buyer] += price;
+            }
             emit BuyFailed(buyer, _tokenId);
         }
     }
