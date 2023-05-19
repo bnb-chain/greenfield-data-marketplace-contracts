@@ -17,6 +17,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     /*----------------- constants -----------------*/
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
+    bytes32 public constant ROLE_UPDATE = keccak256("ROLE_UPDATE"); // use in GroupHub
+
     /*----------------- system contracts -----------------*/
     address public groupToken;
     address public memberToken;
@@ -27,10 +29,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     // address => uncliamed amount
     mapping(address => uint256) public unclaimedFunds;
 
+    address fundWallet;
+
     uint256 public transferGasLimit; // 2300 for now
     uint256 public feeRate; // 10000 = 100%
-
-    address fundWallet;
 
     // placeHolder reserved for future usage
     uint256[50] _reservedSlots;
@@ -47,20 +49,20 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     function initialize(
+        address _initAdmin,
+        address _fundWallet,
+        uint256 _feeRate,
         address _crossChain,
         address _groupHub,
         uint256 _callbackGasLimit,
-        uint8 _failureHandleStrategy,
-        uint256 _feeRate,
-        address _initAdmin,
-        address _fundWallet
+        uint8 _failureHandleStrategy
     ) public initializer {
         require(_initAdmin != address(0), "MarketPlace: invalid admin address");
         _grantRole(DEFAULT_ADMIN_ROLE, _initAdmin);
 
         transferGasLimit = 2300;
-        feeRate = _feeRate;
         fundWallet = _fundWallet;
+        feeRate = _feeRate;
         groupToken = IGroupHub(_groupHub).ERC721Token();
         memberToken = IGroupHub(_groupHub).ERC1155Token();
 
@@ -86,6 +88,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     function list(uint256 groupId, uint256 price) external onlyGroupOwner(groupId) {
+        // the owner need to approve the marketplace contract to update the group
+        require(IGroupHub(groupHub).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
+
         prices[groupId] = price;
         emit List(msg.sender, groupId, price);
     }
@@ -96,24 +101,35 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         emit Delist(msg.sender, groupId);
     }
 
-    function buy(uint256 groupId) external payable {
+    function buy(uint256 groupId, address refundAddress) external payable {
         require(prices[groupId] > 0, "MarketPlace: not listed");
-        require(msg.value >= prices[groupId]+_getTotalFee(), "MarketPlace: insufficient fund");
+        require(msg.value >= prices[groupId] + _getTotalFee(), "MarketPlace: insufficient fund");
 
-        _buy(groupId);
+        _buy(groupId, refundAddress, msg.value);
     }
 
-    function buyBatch(uint256[] calldata groupIds) external payable {
-        uint256 totalPrice;
-        for (uint256 i = 0; i < groupIds.length; i++) {
+    function buyBatch(uint256[] calldata groupIds, address refundAddress) external payable {
+        uint256 receivedValue = msg.value;
+        uint256 relayFee = _getTotalFee();
+        uint256 amount;
+        for (uint256 i; i < groupIds.length; ++i) {
             require(prices[groupIds[i]] > 0, "MarketPlace: not listed");
-            totalPrice += prices[groupIds[i]];
-        }
-        require(msg.value >= totalPrice+_getTotalFee(), "MarketPlace: insufficient fund");
 
-        for (uint256 i = 0; i < groupIds.length; i++) {
-            _buy(groupIds[i]);
+            amount = prices[groupIds[i]] + relayFee;
+            require(receivedValue >= amount, "MarketPlace: insufficient fund");
+            receivedValue -= amount;
+            _buy(groupIds[i], refundAddress, amount);
         }
+        if (receivedValue > 0) {
+            (bool success,) = payable(refundAddress).call{gas: transferGasLimit, value: receivedValue}("");
+            if (!success) {
+                unclaimedFunds[refundAddress] += receivedValue;
+            }
+        }
+    }
+
+    function getMinRelayFee() external returns (uint256) {
+        return _getTotalFee();
     }
 
     function claim() external nonReentrant {
@@ -159,14 +175,29 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     /*----------------- internal functions -----------------*/
-    function _buy(uint256 groupId) internal {
+    function _buy(uint256 groupId, address refundAddress, uint256 amount) internal {
         address buyer = msg.sender;
         require(IERC1155NonTransferable(memberToken).balanceOf(buyer, groupId) == 0, "MarketPlace: already purchased");
 
         address _owner = IERC721NonTransferable(groupToken).ownerOf(groupId);
         address[] memory members = new address[](1);
         members[0] = buyer;
-        _updateGroup(_owner, groupId, GroupStorage.UpdateGroupOpType.AddMembers, members, buyer, _encodeCallbackData(_owner, buyer, prices[groupId]));
+        bytes memory callbackData = _encodeCallbackData(_owner, buyer, prices[groupId]);
+        GroupStorage.UpdateGroupSynPackage memory updatePkg = GroupStorage.UpdateGroupSynPackage({
+            operator: _owner,
+            id: groupId,
+            opType: GroupStorage.UpdateGroupOpType.AddMembers,
+            members: members,
+            extraData: ""
+        });
+        CmnStorage.ExtraData memory _extraData = CmnStorage.ExtraData({
+            appAddress: address(this),
+            refundAddress: refundAddress,
+            failureHandleStrategy: failureHandleStrategy,
+            callbackData: callbackData
+        });
+
+        IGroupHub(groupHub).updateGroup{value: amount}(updatePkg, callbackGasLimit, _extraData);
     }
 
     function _groupGreenfieldCall(
@@ -191,13 +222,13 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         if (_status == STATUS_SUCCESS) {
             uint256 feeRateAmount = (price * feeRate) / 10_000;
             payable(fundWallet).transfer(feeRateAmount);
-            (bool success, ) = payable(owner).call{gas: transferGasLimit, value: price - feeRateAmount}("");
+            (bool success,) = payable(owner).call{gas: transferGasLimit, value: price - feeRateAmount}("");
             if (!success) {
                 unclaimedFunds[owner] += price - feeRateAmount;
             }
             emit Buy(buyer, _tokenId);
         } else {
-            (bool success, ) = payable(buyer).call{gas: transferGasLimit, value: price}("");
+            (bool success,) = payable(buyer).call{gas: transferGasLimit, value: price}("");
             if (!success) {
                 unclaimedFunds[buyer] += price;
             }

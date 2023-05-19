@@ -30,12 +30,12 @@ contract Deployer {
     function deploy(
         address _implMarketplace,
         address _owner,
+        address _fundWallet,
+        uint256 _tax,
         address _crossChain,
         address _groupHub,
         uint256 _callbackGasLimit,
-        address _refundAddress,
-        uint8 _failureHandleStrategy,
-        uint256 _tax
+        uint8 _failureHandleStrategy
     ) public {
         require(!deployed, "only not deployed");
         deployed = true;
@@ -53,7 +53,7 @@ contract Deployer {
 
         // 3. init marketplace
         Marketplace(payable(proxyMarketplace)).initialize(
-            _crossChain, _groupHub, _callbackGasLimit, _refundAddress, _failureHandleStrategy, _owner, _tax
+            _owner, _fundWallet, _tax, _crossChain, _groupHub, _callbackGasLimit, _failureHandleStrategy
         );
     }
 

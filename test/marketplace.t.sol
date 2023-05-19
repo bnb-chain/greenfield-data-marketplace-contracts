@@ -3,15 +3,18 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 import "@bnb-chain/greenfield-contracts-sdk/interface/IGroupHub.sol";
-import "@bnb-chain/greenfield-contracts-sdk/interface/IERC721NonTransferable.sol";
 
 import "../contracts/deployer.sol";
 import "../contracts/interface/IMarketplace.sol";
 
+interface IERC721 {
+    function mint(address to, uint256 tokenId) external;
+}
+
 contract MarketplaceTest is Test {
-    uint256 constant public callbackGasLimit = 1000000; // TODO: TBD
-    uint8 constant public failureHandleStrategy = 0; // BlockOnFail
-    uint256 constant public tax = 100; // 1%
+    uint256 public constant callbackGasLimit = 1_000_000; // TODO: TBD
+    uint8 public constant failureHandleStrategy = 0; // BlockOnFail
+    uint256 public constant tax = 100; // 1%
 
     address public operator;
     address public proxyMarketplace;
@@ -23,11 +26,12 @@ contract MarketplaceTest is Test {
 
     event List(address indexed owner, uint256 indexed groupId, uint256 price);
     event Delist(address indexed owner, uint256 indexed groupId);
-    event Buy(address indexed buyer, uint256 indexed groupId);
-    event BuyFailed(address indexed buyer, uint256 indexed groupId);
+    event UpdateSubmitted(address owner, address operator, uint256 id, uint8 opType, address[] members);
+
+    receive() external payable {}
 
     function setUp() public {
-        privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
+        uint256 privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
@@ -38,66 +42,91 @@ contract MarketplaceTest is Test {
         console.log("groupHub address: %s", groupHub);
 
         groupToken = IGroupHub(groupHub).ERC721Token();
-        proxyMarketplace = 0xf195Dc7F063cb7A475dA604E0EB1854B2C7dAA28; // get this from deploy script's log
+        proxyMarketplace = 0xD4113b41fC051038b08d0934841A8168AA5491f4; // get this from deploy script's log
     }
 
-    function testList() public {
+    function testList(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
         // failed with unexisted group
         vm.expectRevert("ERC721: invalid token ID");
-        IMarketplace(proxyMarketplace).list(1, 1e18);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
 
         vm.startPrank(groupHub);
-        IERC721NonTransferable(groupToken).mint(address(this), 1);
+        IERC721(groupToken).mint(address(this), tokenId);
         vm.stopPrank();
 
         // failed with not group owner
         vm.startPrank(address(0x1234));
         vm.expectRevert("MarketPlace: only group owner");
-        IMarketplace(proxyMarketplace).list(1, 1e18);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
         vm.stopPrank();
 
         // success case
+        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
         vm.expectEmit(true, true, false, true, proxyMarketplace);
-        emit List(address(this), 1, 1e18);
-        IMarketplace(proxyMarketplace).list(1, 1e18);
+        emit List(address(this), tokenId, 1e18);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
     }
 
-    function testDelist() public {
+    function testDelist(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
+        vm.prank(groupHub);
+        IERC721(groupToken).mint(address(this), tokenId);
+
         // failed with not listed group
         vm.expectRevert("MarketPlace: not listed");
-        IMarketplace(proxyMarketplace).delist(1);
+        IMarketplace(proxyMarketplace).delist(tokenId);
 
-        vm.startPrank(groupHub);
-        IERC721NonTransferable(groupToken).mint(address(this), 1);
-        vm.stopPrank();
-
-        IMarketplace(proxyMarketplace).list(1, 1e18);
+        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
 
         // failed with not group owner
         vm.startPrank(address(0x1234));
         vm.expectRevert("MarketPlace: only group owner");
-        IMarketplace(proxyMarketplace).delist(1, 1e18);
+        IMarketplace(proxyMarketplace).delist(tokenId);
         vm.stopPrank();
 
         // success case
         vm.expectEmit(true, true, false, true, proxyMarketplace);
-        emit Delist(address(this), 1);
-        IMarketplace(proxyMarketplace).delist(1, 1e18);
+        emit Delist(address(this), tokenId);
+        IMarketplace(proxyMarketplace).delist(tokenId);
     }
 
-    function testBuy() public {
+    function testBuy(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
+        address _owner = address(0x1234);
+        uint256 relayFee = _getTotalFee();
+        // address _buyer = address(this);
+
         // failed with not listed group
         vm.expectRevert("MarketPlace: not listed");
-        IMarketplace(proxyMarketplace).buy(1, 1e18);
+        IMarketplace(proxyMarketplace).buy(tokenId, address(this));
 
-        vm.startPrank(groupHub);
-        IERC721NonTransferable(groupToken).mint(address(this), 1);
+        vm.prank(groupHub);
+        IERC721(groupToken).mint(_owner, tokenId);
+        vm.startPrank(_owner);
+        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
         vm.stopPrank();
-
-        IMarketplace(proxyMarketplace).list(1, 1e18);
 
         // failed with not enough fund
         vm.expectRevert("MarketPlace: insufficient fund");
-        IMarketplace(proxyMarketplace).buy(1, 1e18);
+        IMarketplace(proxyMarketplace).buy{value: 1 ether}(tokenId, address(this));
+
+        // success case
+        address[] memory members = new address[](1);
+        members[0] = address(this);
+        vm.expectEmit(true, true, true, true, groupHub);
+        emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
+        IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
+    }
+
+    function _getTotalFee() internal returns (uint256) {
+        (uint256 relayFee, uint256 minAckRelayFee) = ICrossChain(crossChain).getRelayFees();
+        uint256 gasPrice = ICrossChain(crossChain).callbackGasPrice();
+        return relayFee + minAckRelayFee + callbackGasLimit * gasPrice;
     }
 }

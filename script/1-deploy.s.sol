@@ -7,25 +7,25 @@ import "../contracts/deployer.sol";
 import "../contracts/marketplace.sol";
 
 contract DeployScript is Script {
-    uint256 constant public callbackGasLimit = 1000000; // TODO: TBD
-    uint8 constant public failureHandleStrategy = 0; // BlockOnFail
-    uint256 constant public tax = 100; // 1%
+    uint256 public constant callbackGasLimit = 1_000_000; // TODO: TBD
+    uint8 public constant failureHandleStrategy = 0; // BlockOnFail
+    uint256 public constant tax = 100; // 1%
 
     address public operator;
 
     address public crossChain;
     address public groupHub;
-    address public owner;
-    address public refundAddress;
+    address public initOwner;
+    address public fundWallet;
 
     function setUp() public {
         uint256 privateKey = uint256(vm.envBytes32("OP_PRIVATE_KEY"));
         operator = vm.addr(privateKey);
-        console.log("operator balance: %s", operator.balance/1e18);
+        console.log("operator balance: %s", operator.balance / 1e18);
 
         privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
-        owner = vm.addr(privateKey);
-        console.log("owner: %s", owner);
+        initOwner = vm.addr(privateKey);
+        console.log("init owner: %s", initOwner);
 
         crossChain = vm.envAddress("CROSS_CHAIN");
         console.log("crossChain address: %s", crossChain);
@@ -48,16 +48,15 @@ contract DeployScript is Script {
         require(proxyMarketplace == deployer.proxyMarketplace(), "wrong proxyMarketplace address");
         console.log("proxyMarketplace address: %s", proxyMarketplace);
 
-        refundAddress = proxyMarketplace;
         deployer.deploy(
             address(marketplace),
-            owner,
+            initOwner,
+            fundWallet,
+            tax,
             crossChain,
             groupHub,
             callbackGasLimit,
-            refundAddress,
-            failureHandleStrategy,
-            tax
+            failureHandleStrategy
         );
         vm.stopBroadcast();
     }
