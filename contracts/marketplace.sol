@@ -6,13 +6,17 @@ import "@bnb-chain/greenfield-contracts-sdk/interface/IERC721NonTransferable.sol
 import "@bnb-chain/greenfield-contracts-sdk/interface/IERC1155NonTransferable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/DoubleEndedQueueUpgradeable.sol";
 
-import "../lib/RLPDecode.sol";
-import "../lib/RLPEncode.sol";
+import "./lib/RLPDecode.sol";
+import "./lib/RLPEncode.sol";
 
 contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     using RLPDecode for *;
     using RLPEncode for *;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
+    using DoubleEndedQueueUpgradeable for DoubleEndedQueueUpgradeable.Bytes32Deque;
 
     /*----------------- constants -----------------*/
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -27,9 +31,24 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     // group ID => item price
     mapping(uint256 => uint256) public prices;
     // address => uncliamed amount
-    mapping(address => uint256) public unclaimedFunds;
+    mapping(address => uint256) private _unclaimedFunds;
 
-    address fundWallet;
+    // all listed group IDs, ordered by listed time
+    EnumerableSetUpgradeable.UintSet private _listedGroups;
+
+    // group ID => total sales
+    mapping(uint256 => uint256) private _sales;
+    // sales ranking, ordered by sales(desc)
+    uint256[] private _salesRanking;
+    // group ID corresponding to the sales ranking , ordered by sales(desc)
+    uint256[] private _salesRankingId;
+
+    // user address => user listed group IDs, ordered by listed time
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _userListedGroups;
+    // user address => user purchased group IDs, ordered by purchased time
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _userPurchasedGroups;
+
+    address private _fundWallet;
 
     uint256 public transferGasLimit; // 2300 for now
     uint256 public feeRate; // 10000 = 100%
@@ -50,7 +69,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
     function initialize(
         address _initAdmin,
-        address _fundWallet,
+        address fundWallet_,
         uint256 _feeRate,
         address _crossChain,
         address _groupHub,
@@ -61,13 +80,17 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         _grantRole(DEFAULT_ADMIN_ROLE, _initAdmin);
 
         transferGasLimit = 2300;
-        fundWallet = _fundWallet;
+        _fundWallet = fundWallet_;
         feeRate = _feeRate;
         groupToken = IGroupHub(_groupHub).ERC721Token();
         memberToken = IGroupHub(_groupHub).ERC1155Token();
 
         __base_app_init_unchained(_crossChain, _callbackGasLimit, _failureHandleStrategy);
         __group_app_init_unchained(_groupHub);
+
+        // init sales ranking
+        _salesRanking = new uint256[](10);
+        _salesRankingId = new uint256[](10);
     }
 
     /*----------------- external functions -----------------*/
@@ -92,12 +115,32 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         require(IGroupHub(groupHub).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
 
         prices[groupId] = price;
+        _listedGroups.add(groupId);
+        _userListedGroups[msg.sender].add(groupId);
+
         emit List(msg.sender, groupId, price);
     }
 
     function delist(uint256 groupId) external onlyGroupOwner(groupId) {
         require(prices[groupId] > 0, "MarketPlace: not listed");
+
         delete prices[groupId];
+        delete _sales[groupId];
+        _listedGroups.remove(groupId);
+        _userListedGroups[msg.sender].remove(groupId);
+
+        for (uint256 i; i < _salesRankingId.length; ++i) {
+            if (_salesRankingId[i] == groupId) {
+                for (uint256 j=i; j < _salesRankingId.length - 1; ++j) {
+                    _salesRankingId[j] = _salesRankingId[j+1];
+                    _salesRanking[j] = _salesRanking[j+1];
+                }
+                _salesRankingId.pop();
+                _salesRanking.pop();
+                break;
+            }
+        }
+
         emit Delist(msg.sender, groupId);
     }
 
@@ -123,21 +166,57 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         if (receivedValue > 0) {
             (bool success,) = payable(refundAddress).call{gas: transferGasLimit, value: receivedValue}("");
             if (!success) {
-                unclaimedFunds[refundAddress] += receivedValue;
+                _unclaimedFunds[refundAddress] += receivedValue;
             }
         }
     }
 
+    function claim() external nonReentrant {
+        uint256 amount = _unclaimedFunds[msg.sender];
+        require(amount > 0, "MarketPlace: no unclaimed funds");
+        _unclaimedFunds[msg.sender] = 0;
+        (bool success,) = msg.sender.call{value: amount}("");
+        require(success, "MarketPlace: claim failed");
+    }
+
+    /*----------------- view functions -----------------*/
     function getMinRelayFee() external returns (uint256) {
         return _getTotalFee();
     }
 
-    function claim() external nonReentrant {
-        uint256 amount = unclaimedFunds[msg.sender];
-        require(amount > 0, "MarketPlace: no unclaimed funds");
-        unclaimedFunds[msg.sender] = 0;
-        (bool success,) = msg.sender.call{value: amount}("");
-        require(success, "MarketPlace: claim failed");
+    function getUnclaimedAmount() external view returns (uint256) {
+        return _unclaimedFunds[msg.sender];
+    }
+
+    function getRecentListed(uint256 limit) external view returns (uint256[] memory) {
+        uint256 start = _listedGroups.length() > limit ? _listedGroups.length() - limit : 0;
+        uint256[] memory groupIds = new uint256[](_listedGroups.length() - start);
+        for (uint256 i = start; i < _listedGroups.length(); ++i) {
+            groupIds[i - start] = _listedGroups.at(i);
+        }
+        return groupIds;
+    }
+
+    function getUserPurchased(uint256 limit) external view returns (uint256[] memory) {
+        uint256 start = _userPurchasedGroups[msg.sender].length() > limit
+            ? _userPurchasedGroups[msg.sender].length() - limit
+            : 0;
+        uint256[] memory groupIds = new uint256[](_userPurchasedGroups[msg.sender].length() - start);
+        for (uint256 i = start; i < _userPurchasedGroups[msg.sender].length(); ++i) {
+            groupIds[i - start] = _userPurchasedGroups[msg.sender].at(i);
+        }
+        return groupIds;
+    }
+
+    function getUserListed(uint256 limit) external view returns (uint256[] memory) {
+        uint256 start = _userListedGroups[msg.sender].length() > limit
+            ? _userListedGroups[msg.sender].length() - limit
+            : 0;
+        uint256[] memory groupIds = new uint256[](_userListedGroups[msg.sender].length() - start);
+        for (uint256 i = start; i < _userListedGroups[msg.sender].length(); ++i) {
+            groupIds[i - start] = _userListedGroups[msg.sender].at(i);
+        }
+        return groupIds;
     }
 
     /*----------------- admin functions -----------------*/
@@ -149,8 +228,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         revokeRole(OPERATOR_ROLE, operator);
     }
 
-    function setFundWallet(address _fundWallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        fundWallet = _fundWallet;
+    function set_fundWallet(address __fundWallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _fundWallet = __fundWallet;
     }
 
     function retryPackage(uint8) external override onlyRole(OPERATOR_ROLE) {
@@ -200,6 +279,36 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         IGroupHub(groupHub).updateGroup{value: amount}(updatePkg, callbackGasLimit, _extraData);
     }
 
+    function _updateSales(uint256 groupId) internal {
+        _sales[groupId] += 1;
+        for (uint256 i; i < _salesRankingId.length; ++i) {
+            if (_salesRankingId[i] == groupId) {
+                _salesRanking[i] += 1;
+                break;
+            }
+        }
+
+        uint256 sales = _sales[groupId];
+        for (uint256 i; i < _salesRanking.length; ++i) {
+            if (sales > _salesRanking[i]) {
+                uint256 endIdx = _salesRanking.length - 1;
+                for (uint256 j = i+1; j < _salesRanking.length; ++j) {
+                    if (_salesRankingId[j] == groupId) {
+                        endIdx = j;
+                        break;
+                    }
+                }
+                for (uint256 k = endIdx; k > i; --k) {
+                    _salesRanking[k] = _salesRanking[k - 1];
+                    _salesRankingId[k] = _salesRankingId[k - 1];
+                }
+                _salesRanking[i] = sales;
+                _salesRankingId[i] = groupId;
+                break;
+            }
+        }
+    }
+
     function _groupGreenfieldCall(
         uint32 status,
         uint8 operationType,
@@ -221,16 +330,18 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
         if (_status == STATUS_SUCCESS) {
             uint256 feeRateAmount = (price * feeRate) / 10_000;
-            payable(fundWallet).transfer(feeRateAmount);
+            payable(_fundWallet).transfer(feeRateAmount);
             (bool success,) = payable(owner).call{gas: transferGasLimit, value: price - feeRateAmount}("");
             if (!success) {
-                unclaimedFunds[owner] += price - feeRateAmount;
+                _unclaimedFunds[owner] += price - feeRateAmount;
             }
+            _userPurchasedGroups[buyer].add(_tokenId);
+            _updateSales(_tokenId);
             emit Buy(buyer, _tokenId);
         } else {
             (bool success,) = payable(buyer).call{gas: transferGasLimit, value: price}("");
             if (!success) {
-                unclaimedFunds[buyer] += price;
+                _unclaimedFunds[buyer] += price;
             }
             emit BuyFailed(buyer, _tokenId);
         }
