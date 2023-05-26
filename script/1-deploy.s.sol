@@ -26,12 +26,6 @@ contract DeployScript is Script {
         privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
         initOwner = vm.addr(privateKey);
         console.log("init owner: %s", initOwner);
-
-        crossChain = vm.envAddress("CROSS_CHAIN");
-        console.log("crossChain address: %s", crossChain);
-
-        groupHub = vm.envAddress("GROUP_HUB");
-        console.log("groupHub address: %s", groupHub);
     }
 
     function run() public {
@@ -48,16 +42,7 @@ contract DeployScript is Script {
         require(proxyMarketplace == deployer.proxyMarketplace(), "wrong proxyMarketplace address");
         console.log("proxyMarketplace address: %s", proxyMarketplace);
 
-        deployer.deploy(
-            address(marketplace),
-            initOwner,
-            fundWallet,
-            tax,
-            crossChain,
-            groupHub,
-            callbackGasLimit,
-            failureHandleStrategy
-        );
+        deployer.deploy(address(marketplace), initOwner, fundWallet, tax, callbackGasLimit, failureHandleStrategy);
         vm.stopBroadcast();
     }
 }

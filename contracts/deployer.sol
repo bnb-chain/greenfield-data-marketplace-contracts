@@ -32,8 +32,6 @@ contract Deployer {
         address _owner,
         address _fundWallet,
         uint256 _tax,
-        address _crossChain,
-        address _groupHub,
         uint256 _callbackGasLimit,
         uint8 _failureHandleStrategy
     ) public {
@@ -53,7 +51,7 @@ contract Deployer {
 
         // 3. init marketplace
         Marketplace(payable(proxyMarketplace)).initialize(
-            _owner, _fundWallet, _tax, _crossChain, _groupHub, _callbackGasLimit, _failureHandleStrategy
+            _owner, _fundWallet, _tax, _callbackGasLimit, _failureHandleStrategy
         );
     }
 

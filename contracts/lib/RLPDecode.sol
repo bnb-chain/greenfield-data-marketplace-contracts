@@ -143,9 +143,7 @@ library RLPDecode {
             result := mload(memPtr)
 
             // shfit to the correct location if neccesary
-            if lt(len, 32) {
-                result := div(result, exp(256, sub(32, len)))
-            }
+            if lt(len, 32) { result := div(result, exp(256, sub(32, len))) }
         }
 
         return result;

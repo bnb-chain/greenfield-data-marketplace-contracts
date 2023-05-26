@@ -35,14 +35,10 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        crossChain = vm.envAddress("CROSS_CHAIN");
-        console.log("crossChain address: %s", crossChain);
-
-        groupHub = vm.envAddress("GROUP_HUB");
-        console.log("groupHub address: %s", groupHub);
-
-        groupToken = IGroupHub(groupHub).ERC721Token();
-        proxyMarketplace = 0xD4113b41fC051038b08d0934841A8168AA5491f4; // get this from deploy script's log
+        proxyMarketplace = 0x13388178D2BF7cf842da989C41a46578C29452a6; // get this from deploy script's log
+        crossChain = IMarketplace(proxyMarketplace).CROSS_CHAIN();
+        groupHub = IMarketplace(proxyMarketplace).GROUP_HUB();
+        groupToken = IMarketplace(proxyMarketplace).GROUP_TOKEN();
     }
 
     function testList(uint256 tokenId) public {

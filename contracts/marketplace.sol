@@ -127,9 +127,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
         for (uint256 i; i < _salesRankingId.length; ++i) {
             if (_salesRankingId[i] == groupId) {
-                for (uint256 j=i; j < _salesRankingId.length - 1; ++j) {
-                    _salesRankingId[j] = _salesRankingId[j+1];
-                    _salesRanking[j] = _salesRanking[j+1];
+                for (uint256 j = i; j < _salesRankingId.length - 1; ++j) {
+                    _salesRankingId[j] = _salesRankingId[j + 1];
+                    _salesRanking[j] = _salesRanking[j + 1];
                 }
                 _salesRankingId[_salesRankingId.length - 1] = 0;
                 _salesRanking[_salesRanking.length - 1] = 0;
@@ -305,7 +305,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         for (uint256 i; i < _salesRanking.length; ++i) {
             if (sales > _salesRanking[i]) {
                 uint256 endIdx = _salesRanking.length - 1;
-                for (uint256 j = i+1; j < _salesRanking.length; ++j) {
+                for (uint256 j = i + 1; j < _salesRanking.length; ++j) {
                     if (_salesRankingId[j] == groupId) {
                         endIdx = j;
                         break;
