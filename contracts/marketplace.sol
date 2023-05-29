@@ -38,12 +38,19 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     // all listed group IDs, ordered by listed time
     EnumerableSetUpgradeable.UintSet private _listedGroups;
 
-    // group ID => total sales
-    mapping(uint256 => uint256) private _sales;
-    // sales ranking, ordered by sales(desc)
-    uint256[] private _salesRanking;
-    // group ID corresponding to the sales ranking , ordered by sales(desc)
-    uint256[] private _salesRankingId;
+    // group ID => total sales volume
+    mapping(uint256 => uint256) private _salesVolume;
+    // sales volume ranking list, ordered by sales volume(desc)
+    uint256[] private _salesVolumeRanking;
+    // group ID corresponding to the sales volume rankinglist, ordered by sales volume(desc)
+    uint256[] private _salesVolumeRankingId;
+
+    // group ID => total sales revenue
+    mapping(uint256 => uint256) private _salesRevenue;
+    // sales revenue ranking list, ordered by sales revenue(desc)
+    uint256[] private _salesRevenueRanking;
+    // group ID corresponding to the sales revenue rankinglist, ordered by sales revenue(desc)
+    uint256[] private _salesRevenueRankingId;
 
     // user address => user listed group IDs, ordered by listed time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userListedGroups;
@@ -84,8 +91,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         __group_app_init_unchained(GROUP_HUB);
 
         // init sales ranking
-        _salesRanking = new uint256[](10);
-        _salesRankingId = new uint256[](10);
+        _salesVolumeRanking = new uint256[](10);
+        _salesVolumeRankingId = new uint256[](10);
+        _salesRevenueRanking = new uint256[](10);
+        _salesRevenueRankingId = new uint256[](10);
     }
 
     /*----------------- external functions -----------------*/
@@ -121,18 +130,31 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         require(prices[groupId] > 0, "MarketPlace: not listed");
 
         delete prices[groupId];
-        delete _sales[groupId];
+        delete _salesVolume[groupId];
+        delete _salesRevenue[groupId];
         _listedGroups.remove(groupId);
         _userListedGroups[msg.sender].remove(groupId);
 
-        for (uint256 i; i < _salesRankingId.length; ++i) {
-            if (_salesRankingId[i] == groupId) {
-                for (uint256 j = i; j < _salesRankingId.length - 1; ++j) {
-                    _salesRankingId[j] = _salesRankingId[j + 1];
-                    _salesRanking[j] = _salesRanking[j + 1];
+        for (uint256 i; i < _salesVolumeRankingId.length; ++i) {
+            if (_salesVolumeRankingId[i] == groupId) {
+                for (uint256 j = i; j < _salesVolumeRankingId.length - 1; ++j) {
+                    _salesVolumeRankingId[j] = _salesVolumeRankingId[j + 1];
+                    _salesVolumeRanking[j] = _salesVolumeRanking[j + 1];
                 }
-                _salesRankingId[_salesRankingId.length - 1] = 0;
-                _salesRanking[_salesRanking.length - 1] = 0;
+                _salesVolumeRankingId[_salesVolumeRankingId.length - 1] = 0;
+                _salesVolumeRanking[_salesVolumeRanking.length - 1] = 0;
+                break;
+            }
+        }
+
+        for (uint256 i; i < _salesRevenueRankingId.length; ++i) {
+            if (_salesRevenueRankingId[i] == groupId) {
+                for (uint256 j = i; j < _salesRevenueRankingId.length - 1; ++j) {
+                    _salesRevenueRankingId[j] = _salesRevenueRankingId[j + 1];
+                    _salesRevenueRanking[j] = _salesRevenueRanking[j + 1];
+                }
+                _salesRevenueRankingId[_salesRevenueRankingId.length - 1] = 0;
+                _salesRevenueRanking[_salesRevenueRankingId.length - 1] = 0;
                 break;
             }
         }
@@ -293,30 +315,49 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     function _updateSales(uint256 groupId) internal {
-        _sales[groupId] += 1;
-        for (uint256 i; i < _salesRankingId.length; ++i) {
-            if (_salesRankingId[i] == groupId) {
-                _salesRanking[i] += 1;
-                break;
-            }
-        }
+        // 1. update sales volume
+        _salesVolume[groupId] += 1;
 
-        uint256 sales = _sales[groupId];
-        for (uint256 i; i < _salesRanking.length; ++i) {
-            if (sales > _salesRanking[i]) {
-                uint256 endIdx = _salesRanking.length - 1;
-                for (uint256 j = i + 1; j < _salesRanking.length; ++j) {
-                    if (_salesRankingId[j] == groupId) {
+        uint256 _volume = _salesVolume[groupId];
+        for (uint256 i; i < _salesVolumeRanking.length; ++i) {
+            if (_volume > _salesVolumeRanking[i]) {
+                uint256 endIdx = _salesVolumeRanking.length - 1;
+                for (uint256 j = i + 1; j < _salesVolumeRanking.length; ++j) {
+                    if (_salesVolumeRankingId[j] == groupId) {
                         endIdx = j;
                         break;
                     }
                 }
                 for (uint256 k = endIdx; k > i; --k) {
-                    _salesRanking[k] = _salesRanking[k - 1];
-                    _salesRankingId[k] = _salesRankingId[k - 1];
+                    _salesVolumeRanking[k] = _salesVolumeRanking[k - 1];
+                    _salesVolumeRankingId[k] = _salesVolumeRankingId[k - 1];
                 }
-                _salesRanking[i] = sales;
-                _salesRankingId[i] = groupId;
+                _salesVolumeRanking[i] = _volume;
+                _salesVolumeRankingId[i] = groupId;
+                break;
+            }
+        }
+
+        // 2. update sales revenue
+        uint256 _price = prices[groupId];
+        _salesRevenue[groupId] += _price;
+
+        uint256 _revenue = _salesRevenue[groupId];
+        for (uint256 i; i < _salesRevenueRanking.length; ++i) {
+            if (_revenue > _salesRevenueRanking[i]) {
+                uint256 endIdx = _salesRevenueRanking.length - 1;
+                for (uint256 j = i + 1; j < _salesRevenueRanking.length; ++j) {
+                    if (_salesRevenueRankingId[j] == groupId) {
+                        endIdx = j;
+                        break;
+                    }
+                }
+                for (uint256 k = endIdx; k > i; --k) {
+                    _salesRevenueRanking[k] = _salesRevenueRanking[k - 1];
+                    _salesRevenueRankingId[k] = _salesRevenueRankingId[k - 1];
+                }
+                _salesRevenueRanking[i] = _revenue;
+                _salesRevenueRankingId[i] = groupId;
                 break;
             }
         }
