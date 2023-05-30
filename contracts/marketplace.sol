@@ -204,14 +204,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         return _unclaimedFunds[msg.sender];
     }
 
-    function getListedLength() external view returns (uint256) {
-        return _listedGroups.length();
-    }
-
-    function getListed(uint256 offset, uint256 limit) external view returns (uint256[] memory) {
+    function getListed(uint256 offset, uint256 limit) external view returns (uint256[] memory, uint256) {
         uint256 total = _listedGroups.length();
         if (offset >= total) {
-            return new uint256[](0);
+            return (new uint256[](0), total);
         }
         uint256 count = total - offset;
         if (count > limit) {
@@ -221,17 +217,17 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < count; ++i) {
             result[i] = _listedGroups.at(offset + i);
         }
-        return result;
+        return (result, total);
     }
 
-    function getUserPurchasedLength(address user) external view returns (uint256) {
-        return _userPurchasedGroups[user].length();
-    }
-
-    function getUserPurchased(address user, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
+    function getUserPurchased(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory, uint256) {
         uint256 total = _userPurchasedGroups[user].length();
         if (offset >= total) {
-            return new uint256[](0);
+            return (new uint256[](0), total);
         }
         uint256 count = total - offset;
         if (count > limit) {
@@ -241,17 +237,17 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < count; ++i) {
             result[i] = _userPurchasedGroups[user].at(offset + i);
         }
-        return result;
+        return (result, total);
     }
 
-    function getUserListedLength(address user) external view returns (uint256) {
-        return _userListedGroups[user].length();
-    }
-
-    function getUserListed(address user, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
+    function getUserListed(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory, uint256) {
         uint256 total = _userListedGroups[user].length();
         if (offset >= total) {
-            return new uint256[](0);
+            return (new uint256[](0), total);
         }
         uint256 count = total - offset;
         if (count > limit) {
@@ -261,7 +257,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < count; ++i) {
             result[i] = _userListedGroups[user].at(offset + i);
         }
-        return result;
+        return (result, total);
     }
 
     /*----------------- admin functions -----------------*/
