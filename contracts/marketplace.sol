@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/structs/DoubleEndedQueueUpgrad
 import "./lib/RLPDecode.sol";
 import "./lib/RLPEncode.sol";
 
-contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
+contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     using RLPDecode for *;
     using RLPEncode for *;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
@@ -20,8 +20,6 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
     /*----------------- constants -----------------*/
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-
-    bytes32 public constant ROLE_UPDATE = keccak256("ROLE_UPDATE"); // use in GroupHub
 
     // greenfield system contracts
     address public constant CROSS_CHAIN = 0x24e4b644DF338f9656843E2Ebf1b84715B8c58Ba;
@@ -206,7 +204,11 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         return _unclaimedFunds[msg.sender];
     }
 
-    function getRecentListed(uint256 offset, uint256 limit) external view returns (uint256[] memory) {
+    function getListedLength() external view returns (uint256) {
+        return _listedGroups.length();
+    }
+
+    function getListed(uint256 offset, uint256 limit) external view returns (uint256[] memory) {
         uint256 total = _listedGroups.length();
         if (offset >= total) {
             return new uint256[](0);
@@ -220,6 +222,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
             result[i] = _listedGroups.at(offset + i);
         }
         return result;
+    }
+
+    function getUserPurchasedLength(address user) external view returns (uint256) {
+        return _userPurchasedGroups[user].length();
     }
 
     function getUserPurchased(address user, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
@@ -236,6 +242,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
             result[i] = _userPurchasedGroups[user].at(offset + i);
         }
         return result;
+    }
+
+    function getUserListedLength(address user) external view returns (uint256) {
+        return _userListedGroups[user].length();
     }
 
     function getUserListed(address user, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
@@ -297,14 +307,14 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         address[] memory members = new address[](1);
         members[0] = buyer;
         bytes memory callbackData = _encodeCallbackData(_owner, buyer, prices[groupId]);
-        GroupStorage.UpdateGroupSynPackage memory updatePkg = GroupStorage.UpdateGroupSynPackage({
+        UpdateGroupSynPackage memory updatePkg = UpdateGroupSynPackage({
             operator: _owner,
             id: groupId,
-            opType: GroupStorage.UpdateGroupOpType.AddMembers,
+            opType: UpdateGroupOpType.AddMembers,
             members: members,
             extraData: ""
         });
-        CmnStorage.ExtraData memory _extraData = CmnStorage.ExtraData({
+        ExtraData memory _extraData = ExtraData({
             appAddress: address(this),
             refundAddress: refundAddress,
             failureHandleStrategy: failureHandleStrategy,

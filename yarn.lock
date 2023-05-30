@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@bnb-chain/greenfield-contracts-sdk@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts-sdk/-/greenfield-contracts-sdk-0.0.3.tgz"
-  integrity sha512-vib7Sp3kBInQvJEmD+uQPKfBn+Z/XGdvN+SjOeTNiTPrXZJW97h3uMgoIx3iVtaZJj+Q2YLBaNN+G47tIMizxA==
+"@bnb-chain/greenfield-contracts-sdk@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts-sdk/-/greenfield-contracts-sdk-0.0.4.tgz"
+  integrity sha512-DwHK7PY+NQM32U+GdM21eSL+Zz1W/FmL7ozAlgD1dmvnMaHmB4aWI1WzeKnV/yYPDzw5PEf+LMF3IpKTqjx4mA==
   dependencies:
     "@openzeppelin/contracts" "^4.8.3"
     "@openzeppelin/contracts-upgradeable" "^4.8.3"
