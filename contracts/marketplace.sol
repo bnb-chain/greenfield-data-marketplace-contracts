@@ -196,68 +196,123 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     }
 
     /*----------------- view functions -----------------*/
-    function getMinRelayFee() external returns (uint256) {
-        return _getTotalFee();
+    function getMinRelayFee() external returns (uint256 amount) {
+        amount = _getTotalFee();
     }
 
-    function getUnclaimedAmount() external view returns (uint256) {
-        return _unclaimedFunds[msg.sender];
+    function getUnclaimedAmount() external view returns (uint256 amount) {
+        amount = _unclaimedFunds[msg.sender];
     }
 
-    function getListed(uint256 offset, uint256 limit) external view returns (uint256[] memory, uint256) {
-        uint256 total = _listedGroups.length();
-        if (offset >= total) {
-            return (new uint256[](0), total);
+    function getSalesVolumeRanking() external view returns (uint256[] memory ids, uint256[] memory volume) {
+        ids = _salesVolumeRankingId;
+        volume = _salesVolumeRanking;
+    }
+
+    function getSalesRevenueRanking() external view returns (uint256[] memory ids, uint256[] memory revenues) {
+        ids = _salesRevenueRankingId;
+        revenues = _salesRevenueRanking;
+    }
+
+    function getListed(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory ids, uint256 totalLength) {
+        totalLength = _listedGroups.length();
+        if (offset >= totalLength) {
+            return (ids, totalLength);
         }
-        uint256 count = total - offset;
+
+        uint256 count = totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        uint256[] memory result = new uint256[](count);
+        ids = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            result[i] = _listedGroups.at(offset + i);
+            ids[i] = _listedGroups.at(totalLength - offset - i); // reverse order
         }
-        return (result, total);
+    }
+
+    function getSalesRevenue(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory ids, uint256[] memory revenues, uint256 totalLength) {
+        totalLength = _listedGroups.length();
+        if (offset >= totalLength) {
+            return (ids, revenues, totalLength);
+        }
+
+        uint256 count = totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        ids = new uint256[](count);
+        revenues = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            ids[i] = _listedGroups.at(offset + i);
+            revenues[i] = _salesRevenue[ids[i]];
+        }
+    }
+
+    function getSalesVolume(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory ids, uint256[] memory volumes, uint256 totalLength) {
+        totalLength = _listedGroups.length();
+        if (offset >= totalLength) {
+            return (new uint256[](0), new uint256[](0), totalLength);
+        }
+
+        uint256 count = totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        ids = new uint256[](count);
+        volumes = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            ids[i] = _listedGroups.at(offset + i);
+            volumes[i] = _salesVolume[ids[i]];
+        }
     }
 
     function getUserPurchased(
         address user,
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory, uint256) {
-        uint256 total = _userPurchasedGroups[user].length();
-        if (offset >= total) {
-            return (new uint256[](0), total);
+    ) external view returns (uint256[] memory ids, uint256 totalLength) {
+        totalLength = _userPurchasedGroups[user].length();
+        if (offset >= totalLength) {
+            return (ids, totalLength);
         }
-        uint256 count = total - offset;
+
+        uint256 count = totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        uint256[] memory result = new uint256[](count);
+        ids = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            result[i] = _userPurchasedGroups[user].at(offset + i);
+            ids[i] = _userPurchasedGroups[user].at(offset + i);
         }
-        return (result, total);
     }
 
     function getUserListed(
         address user,
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory, uint256) {
-        uint256 total = _userListedGroups[user].length();
-        if (offset >= total) {
-            return (new uint256[](0), total);
+    ) external view returns (uint256[] memory ids, uint256 totalLength) {
+        totalLength = _userListedGroups[user].length();
+        if (offset >= totalLength) {
+            return (new uint256[](0), totalLength);
         }
-        uint256 count = total - offset;
+
+        uint256 count = totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        uint256[] memory result = new uint256[](count);
+        ids = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            result[i] = _userListedGroups[user].at(offset + i);
+            ids[i] = _userListedGroups[user].at(offset + i);
         }
-        return (result, total);
     }
 
     /*----------------- admin functions -----------------*/

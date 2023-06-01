@@ -47,18 +47,31 @@ interface IMarketplace {
     function failureHandleStrategy() external view returns (uint8);
     function feeRate() external view returns (uint256);
     function fundWallet() external view returns (address);
-    function getListed(uint256 offset, uint256 limit) external view returns (uint256[] memory, uint256);
-    function getMinRelayFee() external returns (uint256);
+    function getListed(uint256 offset, uint256 limit)
+        external
+        view
+        returns (uint256[] memory ids, uint256 totalLength);
+    function getMinRelayFee() external returns (uint256 amount);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
-    function getUnclaimedAmount() external view returns (uint256);
+    function getSalesRevenue(uint256 offset, uint256 limit)
+        external
+        view
+        returns (uint256[] memory ids, uint256[] memory revenues, uint256 totalLength);
+    function getSalesRevenueRanking() external view returns (uint256[] memory ids, uint256[] memory revenues);
+    function getSalesVolume(uint256 offset, uint256 limit)
+        external
+        view
+        returns (uint256[] memory ids, uint256[] memory volumes, uint256 totalLength);
+    function getSalesVolumeRanking() external view returns (uint256[] memory ids, uint256[] memory volume);
+    function getUnclaimedAmount() external view returns (uint256 amount);
     function getUserListed(address user, uint256 offset, uint256 limit)
         external
         view
-        returns (uint256[] memory, uint256);
+        returns (uint256[] memory ids, uint256 totalLength);
     function getUserPurchased(address user, uint256 offset, uint256 limit)
         external
         view
-        returns (uint256[] memory, uint256);
+        returns (uint256[] memory ids, uint256 totalLength);
     function grantRole(bytes32 role, address account) external;
     function greenfieldCall(
         uint32 status,
