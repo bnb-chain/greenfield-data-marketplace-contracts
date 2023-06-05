@@ -35,7 +35,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0x13388178D2BF7cf842da989C41a46578C29452a6; // get this from deploy script's log
+        proxyMarketplace = 0x0D5ea5dbBE58Ea038854e19D3C50e7C0F8ea90cf; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace).CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace).GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace).GROUP_TOKEN();
@@ -118,6 +118,14 @@ contract MarketplaceTest is Test {
         vm.expectEmit(true, true, true, true, groupHub);
         emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
         IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
+    }
+
+    function testVerify() public {
+        address _owner = 0xd6645175b927C363699BC076B7C29569E499d748;
+        address _impl = 0x94DE04C760234A9969c92E6a9d83c3Cc4728f089;
+        string memory _str = "";
+        bytes memory _data = abi.encode(_impl, _owner, _str);
+        emit log_bytes(_data);
     }
 
     function _getTotalFee() internal returns (uint256) {

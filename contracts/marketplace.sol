@@ -22,29 +22,32 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // greenfield system contracts
-    address public constant CROSS_CHAIN = 0x24e4b644DF338f9656843E2Ebf1b84715B8c58Ba;
-    address public constant GROUP_HUB = 0x014964f4596A1fE218867867696b0661cF2421CA;
-    address public constant GROUP_TOKEN = 0xC9654fe0C1450D387158c9D7492B3Df77CF0B030;
-    address public constant MEMBER_TOKEN = 0x0eF4A6Da4CFF0B3D7cE4a611621De15d86919cB3;
+    address public constant CROSS_CHAIN = 0x9A4CEd31cc784e60057b931a39B4744bD3977E1F;
+    address public constant GROUP_HUB = 0x0c5C94AacCf31C84691A0883e809B1BB44989050;
+    address public constant GROUP_TOKEN = 0x4E9790381577633F611e57A72A59EB298CB5C16C;
+    address public constant MEMBER_TOKEN = 0x710921a971A5843487C38d9c1cB640515D317a58;
 
     /*----------------- storage -----------------*/
     // group ID => item price
     mapping(uint256 => uint256) public prices;
+    // group ID => total sales volume
+    mapping(uint256 => uint256) public salesVolume;
+    // group ID => total sales revenue
+    mapping(uint256 => uint256) public salesRevenue;
+    // group ID => listed date
+    mapping(uint256 => uint256) public listedDate;
+
     // address => uncliamed amount
     mapping(address => uint256) private _unclaimedFunds;
 
-    // all listed group IDs, ordered by listed time
+    // all listed group _ids, ordered by listed time
     EnumerableSetUpgradeable.UintSet private _listedGroups;
 
-    // group ID => total sales volume
-    mapping(uint256 => uint256) private _salesVolume;
     // sales volume ranking list, ordered by sales volume(desc)
     uint256[] private _salesVolumeRanking;
     // group ID corresponding to the sales volume rankinglist, ordered by sales volume(desc)
     uint256[] private _salesVolumeRankingId;
 
-    // group ID => total sales revenue
-    mapping(uint256 => uint256) private _salesRevenue;
     // sales revenue ranking list, ordered by sales revenue(desc)
     uint256[] private _salesRevenueRanking;
     // group ID corresponding to the sales revenue rankinglist, ordered by sales revenue(desc)
@@ -115,21 +118,31 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     function list(uint256 groupId, uint256 price) external onlyGroupOwner(groupId) {
         // the owner need to approve the marketplace contract to update the group
         require(IGroupHub(GROUP_HUB).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
+        require(prices[groupId] == 0, "Marketplace: already listed");
         require(price > 0, "Marketplace: invalid price");
 
         prices[groupId] = price;
+        listedDate[groupId] = block.timestamp;
         _listedGroups.add(groupId);
         _userListedGroups[msg.sender].add(groupId);
 
         emit List(msg.sender, groupId, price);
     }
 
+    function setPrice(uint256 groupId, uint256 newPrice) external onlyGroupOwner(groupId) {
+        require(prices[groupId] > 0, "MarketPlace: not listed");
+        require(newPrice > 0, "MarketPlace: invalid price");
+
+        prices[groupId] = newPrice;
+    }
+
     function delist(uint256 groupId) external onlyGroupOwner(groupId) {
         require(prices[groupId] > 0, "MarketPlace: not listed");
 
         delete prices[groupId];
-        delete _salesVolume[groupId];
-        delete _salesRevenue[groupId];
+        delete listedDate[groupId];
+        delete salesVolume[groupId];
+        delete salesRevenue[groupId];
         _listedGroups.remove(groupId);
         _userListedGroups[msg.sender].remove(groupId);
 
@@ -162,6 +175,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
 
     function buy(uint256 groupId, address refundAddress) external payable {
         require(prices[groupId] > 0, "MarketPlace: not listed");
+        require(!_userPurchasedGroups[msg.sender].contains(groupId), "MarketPlace: already purchased");
         require(msg.value >= prices[groupId] + _getTotalFee(), "MarketPlace: insufficient fund");
 
         _buy(groupId, refundAddress, msg.value);
@@ -173,6 +187,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         uint256 amount;
         for (uint256 i; i < groupIds.length; ++i) {
             require(prices[groupIds[i]] > 0, "MarketPlace: not listed");
+            require(!_userPurchasedGroups[msg.sender].contains(groupIds[i]), "MarketPlace: already purchased");
 
             amount = prices[groupIds[i]] + relayFee;
             require(receivedValue >= amount, "MarketPlace: insufficient fund");
@@ -204,74 +219,104 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         amount = _unclaimedFunds[msg.sender];
     }
 
-    function getSalesVolumeRanking() external view returns (uint256[] memory ids, uint256[] memory volume) {
-        ids = _salesVolumeRankingId;
-        volume = _salesVolumeRanking;
+    function getSalesVolumeRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates)
+    {
+        _ids = _salesVolumeRankingId;
+        _volumes = _salesVolumeRanking;
+
+        _dates = new uint256[](_ids.length);
+        for (uint256 i; i < _ids.length; ++i) {
+            _dates[i] = listedDate[_ids[i]];
+        }
     }
 
-    function getSalesRevenueRanking() external view returns (uint256[] memory ids, uint256[] memory revenues) {
-        ids = _salesRevenueRankingId;
-        revenues = _salesRevenueRanking;
+    function getSalesRevenueRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates)
+    {
+        _ids = _salesRevenueRankingId;
+        _revenues = _salesRevenueRanking;
+
+        _dates = new uint256[](_ids.length);
+        for (uint256 i; i < _ids.length; ++i) {
+            _dates[i] = listedDate[_ids[i]];
+        }
     }
 
     function getListed(
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory ids, uint256 totalLength) {
-        totalLength = _listedGroups.length();
-        if (offset >= totalLength) {
-            return (ids, totalLength);
+    ) external view returns (uint256[] memory _ids, uint256 _totalLength) {
+        _totalLength = _listedGroups.length();
+        if (offset >= _totalLength) {
+            return (_ids, _totalLength);
         }
 
-        uint256 count = totalLength - offset;
+        uint256 count = _totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        ids = new uint256[](count);
+        _ids = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            ids[i] = _listedGroups.at(totalLength - offset - i); // reverse order
+            _ids[i] = _listedGroups.at(_totalLength - offset - i); // reverse order
         }
     }
 
     function getSalesRevenue(
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory ids, uint256[] memory revenues, uint256 totalLength) {
-        totalLength = _listedGroups.length();
-        if (offset >= totalLength) {
-            return (ids, revenues, totalLength);
+    )
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates, uint256 _totalLength)
+    {
+        _totalLength = _listedGroups.length();
+        if (offset >= _totalLength) {
+            return (_ids, _revenues, _dates, _totalLength);
         }
 
-        uint256 count = totalLength - offset;
+        uint256 count = _totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        ids = new uint256[](count);
-        revenues = new uint256[](count);
+        _ids = new uint256[](count);
+        _revenues = new uint256[](count);
+        _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            ids[i] = _listedGroups.at(offset + i);
-            revenues[i] = _salesRevenue[ids[i]];
+            _ids[i] = _listedGroups.at(offset + i);
+            _revenues[i] = salesRevenue[_ids[i]];
+            _dates[i] = listedDate[_ids[i]];
         }
     }
 
     function getSalesVolume(
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory ids, uint256[] memory volumes, uint256 totalLength) {
-        totalLength = _listedGroups.length();
-        if (offset >= totalLength) {
-            return (new uint256[](0), new uint256[](0), totalLength);
+    )
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates, uint256 _totalLength)
+    {
+        _totalLength = _listedGroups.length();
+        if (offset >= _totalLength) {
+            return (_ids, _volumes, _dates, _totalLength);
         }
 
-        uint256 count = totalLength - offset;
+        uint256 count = _totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        ids = new uint256[](count);
-        volumes = new uint256[](count);
+        _ids = new uint256[](count);
+        _volumes = new uint256[](count);
+        _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            ids[i] = _listedGroups.at(offset + i);
-            volumes[i] = _salesVolume[ids[i]];
+            _ids[i] = _listedGroups.at(offset + i);
+            _volumes[i] = salesVolume[_ids[i]];
+            _dates[i] = listedDate[_ids[i]];
         }
     }
 
@@ -279,19 +324,21 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         address user,
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory ids, uint256 totalLength) {
-        totalLength = _userPurchasedGroups[user].length();
-        if (offset >= totalLength) {
-            return (ids, totalLength);
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _userPurchasedGroups[user].length();
+        if (offset >= _totalLength) {
+            return (_ids, _dates, _totalLength);
         }
 
-        uint256 count = totalLength - offset;
+        uint256 count = _totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        ids = new uint256[](count);
+        _ids = new uint256[](count);
+        _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            ids[i] = _userPurchasedGroups[user].at(offset + i);
+            _ids[i] = _userPurchasedGroups[user].at(offset + i);
+            _dates[i] = listedDate[_ids[i]];
         }
     }
 
@@ -299,19 +346,21 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         address user,
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory ids, uint256 totalLength) {
-        totalLength = _userListedGroups[user].length();
-        if (offset >= totalLength) {
-            return (new uint256[](0), totalLength);
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _userListedGroups[user].length();
+        if (offset >= _totalLength) {
+            return (_ids, _dates, _totalLength);
         }
 
-        uint256 count = totalLength - offset;
+        uint256 count = _totalLength - offset;
         if (count > limit) {
             count = limit;
         }
-        ids = new uint256[](count);
+        _ids = new uint256[](count);
+        _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            ids[i] = _userListedGroups[user].at(offset + i);
+            _ids[i] = _userListedGroups[user].at(offset + i);
+            _dates[i] = listedDate[_ids[i]];
         }
     }
 
@@ -377,9 +426,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
 
     function _updateSales(uint256 groupId) internal {
         // 1. update sales volume
-        _salesVolume[groupId] += 1;
+        salesVolume[groupId] += 1;
 
-        uint256 _volume = _salesVolume[groupId];
+        uint256 _volume = salesVolume[groupId];
         for (uint256 i; i < _salesVolumeRanking.length; ++i) {
             if (_volume > _salesVolumeRanking[i]) {
                 uint256 endIdx = _salesVolumeRanking.length - 1;
@@ -401,9 +450,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
 
         // 2. update sales revenue
         uint256 _price = prices[groupId];
-        _salesRevenue[groupId] += _price;
+        salesRevenue[groupId] += _price;
 
-        uint256 _revenue = _salesRevenue[groupId];
+        uint256 _revenue = salesRevenue[groupId];
         for (uint256 i; i < _salesRevenueRanking.length; ++i) {
             if (_revenue > _salesRevenueRanking[i]) {
                 uint256 endIdx = _salesRevenueRanking.length - 1;
