@@ -37,7 +37,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     // group ID => listed date
     mapping(uint256 => uint256) public listedDate;
 
-    // address => uncliamed amount
+    // address => unclaimed amount
     mapping(address => uint256) private _unclaimedFunds;
 
     // all listed group _ids, ordered by listed time
@@ -45,12 +45,12 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
 
     // sales volume ranking list, ordered by sales volume(desc)
     uint256[] private _salesVolumeRanking;
-    // group ID corresponding to the sales volume rankinglist, ordered by sales volume(desc)
+    // group ID corresponding to the sales volume ranking list, ordered by sales volume(desc)
     uint256[] private _salesVolumeRankingId;
 
     // sales revenue ranking list, ordered by sales revenue(desc)
     uint256[] private _salesRevenueRanking;
-    // group ID corresponding to the sales revenue rankinglist, ordered by sales revenue(desc)
+    // group ID corresponding to the sales revenue ranking list, ordered by sales revenue(desc)
     uint256[] private _salesRevenueRankingId;
 
     // user address => user listed group IDs, ordered by listed time
@@ -101,14 +101,14 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     /*----------------- external functions -----------------*/
     function greenfieldCall(
         uint32 status,
-        uint8 resoureceType,
+        uint8 resourceType,
         uint8 operationType,
         uint256 resourceId,
         bytes calldata callbackData
     ) external override(GroupApp) {
-        require(msg.sender == CROSS_CHAIN, "MarketPlace: invalid caller");
+        require(msg.sender == GROUP_HUB, "MarketPlace: invalid caller");
 
-        if (resoureceType == RESOURCE_GROUP) {
+        if (resourceType == RESOURCE_GROUP) {
             _groupGreenfieldCall(status, operationType, resourceId, callbackData);
         } else {
             revert("MarketPlace: invalid resource type");
@@ -174,11 +174,12 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     }
 
     function buy(uint256 groupId, address refundAddress) external payable {
-        require(prices[groupId] > 0, "MarketPlace: not listed");
+        uint256 price = prices[groupId];
+        require(price > 0, "MarketPlace: not listed");
         require(!_userPurchasedGroups[msg.sender].contains(groupId), "MarketPlace: already purchased");
         require(msg.value >= prices[groupId] + _getTotalFee(), "MarketPlace: insufficient fund");
 
-        _buy(groupId, refundAddress, msg.value);
+        _buy(groupId, refundAddress, msg.value - price);
     }
 
     function buyBatch(uint256[] calldata groupIds, address refundAddress) external payable {
@@ -192,7 +193,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
             amount = prices[groupIds[i]] + relayFee;
             require(receivedValue >= amount, "MarketPlace: insufficient fund");
             receivedValue -= amount;
-            _buy(groupIds[i], refundAddress, amount);
+
+            _buy(groupIds[i], refundAddress, relayFee);
         }
         if (receivedValue > 0) {
             (bool success,) = payable(refundAddress).call{gas: transferGasLimit, value: receivedValue}("");
@@ -250,10 +252,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     function getListed(
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory _ids, uint256 _totalLength) {
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
         _totalLength = _listedGroups.length();
         if (offset >= _totalLength) {
-            return (_ids, _totalLength);
+            return (_ids, _dates, _totalLength);
         }
 
         uint256 count = _totalLength - offset;
@@ -261,8 +263,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
             count = limit;
         }
         _ids = new uint256[](count);
+        _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
-            _ids[i] = _listedGroups.at(_totalLength - offset - i); // reverse order
+            _ids[i] = _listedGroups.at(_totalLength - offset - i - 1); // reverse order
+            _dates[i] = listedDate[_ids[i]];
         }
     }
 
@@ -373,7 +377,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         revokeRole(OPERATOR_ROLE, operator);
     }
 
-    function setfundWallet(address _fundWallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFundWallet(address _fundWallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
         fundWallet = _fundWallet;
     }
 
@@ -543,5 +547,5 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     }
 
     // placeHolder reserved for future usage
-    uint256[50] _reservedSlots;
+    uint256[50] private __reservedSlots;
 }

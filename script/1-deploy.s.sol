@@ -25,6 +25,7 @@ contract DeployScript is Script {
 
         privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
         initOwner = vm.addr(privateKey);
+        fundWallet = initOwner;
         console.log("init owner: %s", initOwner);
     }
 

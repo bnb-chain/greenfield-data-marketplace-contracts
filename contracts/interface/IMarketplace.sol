@@ -50,7 +50,7 @@ interface IMarketplace {
     function getListed(
         uint256 offset,
         uint256 limit
-    ) external view returns (uint256[] memory _ids, uint256 _totalLength);
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
     function getMinRelayFee() external returns (uint256 amount);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
     function getSalesRevenue(
@@ -89,7 +89,7 @@ interface IMarketplace {
     function grantRole(bytes32 role, address account) external;
     function greenfieldCall(
         uint32 status,
-        uint8 resoureceType,
+        uint8 resourceType,
         uint8 operationType,
         uint256 resourceId,
         bytes memory callbackData
@@ -115,8 +115,8 @@ interface IMarketplace {
     function setCallbackGasLimit(uint256 _callbackGasLimit) external;
     function setFailureHandleStrategy(uint8 _failureHandleStrategy) external;
     function setFeeRate(uint256 _feeRate) external;
+    function setFundWallet(address _fundWallet) external;
     function setPrice(uint256 groupId, uint256 newPrice) external;
-    function setfundWallet(address _fundWallet) external;
     function skipPackage(uint8) external;
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
     function transferGasLimit() external view returns (uint256);
