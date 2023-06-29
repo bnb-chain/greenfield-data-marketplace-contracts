@@ -436,7 +436,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < _salesVolumeRanking.length; ++i) {
             if (_volume > _salesVolumeRanking[i]) {
                 uint256 endIdx = _salesVolumeRanking.length - 1;
-                for (uint256 j = i + 1; j < _salesVolumeRanking.length; ++j) {
+                for (uint256 j = i; j < _salesVolumeRanking.length; ++j) {
                     if (_salesVolumeRankingId[j] == groupId) {
                         endIdx = j;
                         break;
@@ -460,7 +460,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < _salesRevenueRanking.length; ++i) {
             if (_revenue > _salesRevenueRanking[i]) {
                 uint256 endIdx = _salesRevenueRanking.length - 1;
-                for (uint256 j = i + 1; j < _salesRevenueRanking.length; ++j) {
+                for (uint256 j = i; j < _salesRevenueRanking.length; ++j) {
                     if (_salesRevenueRankingId[j] == groupId) {
                         endIdx = j;
                         break;
