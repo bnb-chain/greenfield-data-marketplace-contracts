@@ -38,6 +38,11 @@ contract Deployer {
         require(!deployed, "only not deployed");
         deployed = true;
 
+        require(_owner != address(0), "invalid owner");
+        require(_fundWallet != address(0), "invalid fundWallet");
+        require(_tax <= 1000, "invalid tax");
+        require(_callbackGasLimit > 0, "invalid callbackGasLimit");
+
         require(_isContract(_implMarketplace), "invalid implMarketplace");
         implMarketplace = _implMarketplace;
 

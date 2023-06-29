@@ -47,35 +47,49 @@ interface IMarketplace {
     function failureHandleStrategy() external view returns (uint8);
     function feeRate() external view returns (uint256);
     function fundWallet() external view returns (address);
-    function getListed(uint256 offset, uint256 limit)
-        external
-        view
-        returns (uint256[] memory ids, uint256 totalLength);
+    function getListed(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
     function getMinRelayFee() external returns (uint256 amount);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
-    function getSalesRevenue(uint256 offset, uint256 limit)
+    function getSalesRevenue(
+        uint256 offset,
+        uint256 limit
+    )
         external
         view
-        returns (uint256[] memory ids, uint256[] memory revenues, uint256 totalLength);
-    function getSalesRevenueRanking() external view returns (uint256[] memory ids, uint256[] memory revenues);
-    function getSalesVolume(uint256 offset, uint256 limit)
+        returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates, uint256 _totalLength);
+    function getSalesRevenueRanking()
         external
         view
-        returns (uint256[] memory ids, uint256[] memory volumes, uint256 totalLength);
-    function getSalesVolumeRanking() external view returns (uint256[] memory ids, uint256[] memory volume);
+        returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates);
+    function getSalesVolume(
+        uint256 offset,
+        uint256 limit
+    )
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates, uint256 _totalLength);
+    function getSalesVolumeRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates);
     function getUnclaimedAmount() external view returns (uint256 amount);
-    function getUserListed(address user, uint256 offset, uint256 limit)
-        external
-        view
-        returns (uint256[] memory ids, uint256 totalLength);
-    function getUserPurchased(address user, uint256 offset, uint256 limit)
-        external
-        view
-        returns (uint256[] memory ids, uint256 totalLength);
+    function getUserListed(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
+    function getUserPurchased(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
     function grantRole(bytes32 role, address account) external;
     function greenfieldCall(
         uint32 status,
-        uint8 resoureceType,
+        uint8 resourceType,
         uint8 operationType,
         uint256 resourceId,
         bytes memory callbackData
@@ -90,15 +104,19 @@ interface IMarketplace {
         uint8 _failureHandleStrategy
     ) external;
     function list(uint256 groupId, uint256 price) external;
+    function listedDate(uint256) external view returns (uint256);
     function prices(uint256) external view returns (uint256);
     function removeOperator(address operator) external;
     function renounceRole(bytes32 role, address account) external;
     function retryPackage(uint8) external;
     function revokeRole(bytes32 role, address account) external;
+    function salesRevenue(uint256) external view returns (uint256);
+    function salesVolume(uint256) external view returns (uint256);
     function setCallbackGasLimit(uint256 _callbackGasLimit) external;
     function setFailureHandleStrategy(uint8 _failureHandleStrategy) external;
     function setFeeRate(uint256 _feeRate) external;
-    function setfundWallet(address _fundWallet) external;
+    function setFundWallet(address _fundWallet) external;
+    function setPrice(uint256 groupId, uint256 newPrice) external;
     function skipPackage(uint8) external;
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
     function transferGasLimit() external view returns (uint256);
