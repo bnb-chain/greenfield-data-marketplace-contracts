@@ -1,6 +1,6 @@
-# data-marketplace-contracts
+# greenfield-data-marketplace-contracts
 
-Data-marketplace is a marketplace protocol for safely and efficiently buying and selling data uploaded in [Greenfield](https://github.com/bnb-chain/greenfield-contracts).
+Greenfield-data-marketplace is a marketplace protocol for safely and efficiently buying and selling data uploaded in [Greenfield](https://github.com/bnb-chain/greenfield-contracts).
 
 ## Install
 
@@ -8,8 +8,8 @@ To install dependencies:
 
 ```bash
 git clone --recurse-submodules https://github.com/bnb-chain/data-marketplace-contracts.git && cd greenfield-contracts
-yarn
-forge update
+yarn install
+forge install
 ```
 
 ## Deploy
