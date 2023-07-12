@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import "@bnb-chain/greenfield-contracts/contracts/lib/RLPDecode.sol";
+import "@bnb-chain/greenfield-contracts/contracts/lib/RLPEncode.sol";
 import "@bnb-chain/greenfield-contracts-sdk/GroupApp.sol";
 import "@bnb-chain/greenfield-contracts-sdk/interface/IERC721NonTransferable.sol";
 import "@bnb-chain/greenfield-contracts-sdk/interface/IERC1155NonTransferable.sol";
@@ -8,9 +10,6 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/DoubleEndedQueueUpgradeable.sol";
-
-import "./lib/RLPDecode.sol";
-import "./lib/RLPEncode.sol";
 
 contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     using RLPDecode for *;
@@ -436,7 +435,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < _salesVolumeRanking.length; ++i) {
             if (_volume > _salesVolumeRanking[i]) {
                 uint256 endIdx = _salesVolumeRanking.length - 1;
-                for (uint256 j = i + 1; j < _salesVolumeRanking.length; ++j) {
+                for (uint256 j = i; j < _salesVolumeRanking.length; ++j) {
                     if (_salesVolumeRankingId[j] == groupId) {
                         endIdx = j;
                         break;
@@ -460,7 +459,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         for (uint256 i; i < _salesRevenueRanking.length; ++i) {
             if (_revenue > _salesRevenueRanking[i]) {
                 uint256 endIdx = _salesRevenueRanking.length - 1;
-                for (uint256 j = i + 1; j < _salesRevenueRanking.length; ++j) {
+                for (uint256 j = i; j < _salesRevenueRanking.length; ++j) {
                     if (_salesRevenueRankingId[j] == groupId) {
                         endIdx = j;
                         break;
