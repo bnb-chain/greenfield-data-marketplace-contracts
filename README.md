@@ -2,6 +2,8 @@
 
 Greenfield-data-marketplace is a marketplace protocol for safely and efficiently buying and selling data uploaded in [Greenfield](https://github.com/bnb-chain/greenfield-contracts).
 
+The front-end of the marketplace is available at [greenfield-data-marketplace-frontend](https://github.com/bnb-chain/greenfield-data-marketplace-frontend/).
+
 ## Install
 
 To install dependencies:
