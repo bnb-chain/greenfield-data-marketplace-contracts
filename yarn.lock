@@ -2,19 +2,19 @@
 # yarn lockfile v1
 
 
-"@bnb-chain/greenfield-contracts-sdk@0.0.6-alpha1":
-  version "0.0.6-alpha1"
-  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts-sdk/-/greenfield-contracts-sdk-0.0.6-alpha1.tgz"
-  integrity sha512-CHKCIlNMPC4PsVJRFk5iPMC3ytjxNWJtL1QV72+VWv0h2FEDyD96BxbJt7SCyr9eqW4Hfe6PtfH/CHlGENPnTA==
+"@bnb-chain/greenfield-contracts-sdk@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts-sdk/-/greenfield-contracts-sdk-0.0.7.tgz"
+  integrity sha512-kvXxOFVW/5w55a9bcQLw8kR5+OKVo+GQ1vUTUV6zP6Q7gScSGPU8pQsLCLchqnJhS/iDHQ8SlrBdMT7uYf0fKA==
   dependencies:
-    "@bnb-chain/greenfield-contracts" "0.0.9-alpha3"
+    "@bnb-chain/greenfield-contracts" "0.1.0"
     "@openzeppelin/contracts" "^4.8.3"
     "@openzeppelin/contracts-upgradeable" "^4.8.3"
 
-"@bnb-chain/greenfield-contracts@0.0.9-alpha3":
-  version "0.0.9-alpha3"
-  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts/-/greenfield-contracts-0.0.9-alpha3.tgz"
-  integrity sha512-G7tga5ivKsAKwUK6TgX/pkBAHpkyBjYcV+2WgtX7dXhkqYWlLgECFe0hHcNjw4/z72hxvOwJFbYONcC3Uhpkiw==
+"@bnb-chain/greenfield-contracts@0.1.0":
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/@bnb-chain/greenfield-contracts/-/greenfield-contracts-0.1.0.tgz"
+  integrity sha512-oWmyuIBuV6zmqOBgSoOW1+KNi9bi8eGGeOkdKeku2N84Y7XMCfpMFG8NFX6qA0t91+pgMjx60+TTAUHniWZtWA==
   dependencies:
     "@openzeppelin/contracts" "4.8.3"
     "@openzeppelin/contracts-upgradeable" "4.8.3"

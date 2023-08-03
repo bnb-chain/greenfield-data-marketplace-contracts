@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/interface/IMarketplace.sol";
-import {Marketplace} from "../contracts/marketplace.sol";
+import {Marketplace} from "../contracts/Marketplace.sol";
 
 contract UpgradeScript is Script {
     address public operator;

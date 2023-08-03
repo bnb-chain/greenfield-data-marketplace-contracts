@@ -7,3 +7,6 @@ libs = ['lib', "node_modules"]
 line_length = 120
 multiline_func_header = "params_first"
 number_underscore = "thousands"
+
+[fuzz]
+runs = 10

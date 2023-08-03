@@ -18,10 +18,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // greenfield system contracts
-    address public constant _CROSS_CHAIN = 0xB08522f47a233D2927d57454e02472F55a6e02CA;
-    address public constant _GROUP_HUB = 0xCE13bA688CaCB1Fb988C8332DEe68567dDa72Cd1;
-    address public constant _GROUP_TOKEN = 0xDa412fbA12CCB45CfE28b6C2eE890Fc603026c89;
-    address public constant _MEMBER_TOKEN = 0xe2d25F628E56d2fD279632D8036f82256627Be99;
+    address public constant _CROSS_CHAIN = 0x93Cf63F9Db8F2B6614Bf507eAaeb29c4D1EfA388;
+    address public constant _GROUP_HUB = 0x28BCd1062dFc8fa6Ab3CA685C48A0e18ddBf1dBf;
+    address public constant _GROUP_TOKEN = 0x57C6c4f66f2100EE57081773C07cFB189d94Fd82;
+    address public constant _MEMBER_TOKEN = 0xBB58977ea8dbB359A7D93B11cbd2c6dbde4E531D;
 
     /*----------------- storage -----------------*/
     // group ID => item price

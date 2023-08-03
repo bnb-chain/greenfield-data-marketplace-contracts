@@ -30,7 +30,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0xc31234db71452d5BB02066F6586a06d2cE67D006; // get this from deploy script's log
+        proxyMarketplace = 0xf6623FeE34df7B282B15076745c59dab4d914284; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace)._CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace)._GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace)._GROUP_TOKEN();
