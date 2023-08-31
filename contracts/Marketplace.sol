@@ -18,10 +18,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // greenfield system contracts
-    address public constant _CROSS_CHAIN = 0x93Cf63F9Db8F2B6614Bf507eAaeb29c4D1EfA388;
-    address public constant _GROUP_HUB = 0x28BCd1062dFc8fa6Ab3CA685C48A0e18ddBf1dBf;
-    address public constant _GROUP_TOKEN = 0x57C6c4f66f2100EE57081773C07cFB189d94Fd82;
-    address public constant _MEMBER_TOKEN = 0xBB58977ea8dbB359A7D93B11cbd2c6dbde4E531D;
+    address public constant _CROSS_CHAIN = 0xa5B2c9194131A4E0BFaCbF9E5D6722c873159cb7;
+    address public constant _GROUP_HUB = 0x50B3BF0d95a8dbA57B58C82dFDB5ff6747Cc1a9E;
+    address public constant _GROUP_TOKEN = 0x7fC61D6FCA8D6Ea811637bA58eaf6aB17d50c4d1;
+    address public constant _MEMBER_TOKEN = 0x43bdF3d63e6318A2831FE1116cBA69afd0F05267;
 
     /*----------------- storage -----------------*/
     // group ID => item price
@@ -414,14 +414,17 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
         address _owner = IERC721NonTransferable(_GROUP_TOKEN).ownerOf(groupId);
         address[] memory members = new address[](1);
+        uint64[] memory expirations = new uint64[](1);
         members[0] = buyer;
+        expirations[0] = 0;
         bytes memory callbackData = abi.encode(_owner, buyer, prices[groupId]);
         UpdateGroupSynPackage memory updatePkg = UpdateGroupSynPackage({
             operator: _owner,
             id: groupId,
             opType: UpdateGroupOpType.AddMembers,
             members: members,
-            extraData: ""
+            extraData: "",
+            memberExpiration: expirations
         });
         ExtraData memory _extraData = ExtraData({
             appAddress: address(this),
