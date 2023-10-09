@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 
-import "../contracts/deployer.sol";
+import "../contracts/Deployer.sol";
 import "../contracts/interface/IMarketplace.sol";
 
 contract MarketplaceTest is Test {
@@ -30,7 +30,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0xf6623FeE34df7B282B15076745c59dab4d914284; // get this from deploy script's log
+        proxyMarketplace = 0x0CC077f821394E49886A2Ef24B5Ec0DDE6aF4d65; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace)._CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace)._GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace)._GROUP_TOKEN();
