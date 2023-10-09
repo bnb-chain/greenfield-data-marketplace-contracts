@@ -10,3 +10,9 @@ node_modules/
 
 **/.DS_Store
 .idea/
+
+# script log
+!/broadcast/1-deploy.s.sol/97/run-latest.json
+!/broadcast/1-deploy.s.sol/56/run-latest.json
+!/broadcast/2-upgrade.s.sol/97/run-latest.json
+!/broadcast/2-upgrade.s.sol/56/run-latest.json
