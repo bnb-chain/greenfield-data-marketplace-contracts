@@ -215,7 +215,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         override
         returns (uint256 version, string memory name, string memory description)
     {
-        return (1, "MarketPlace", "support greenfield-contracts v0.0.9-alpha3");
+        return (2, "MarketPlace", "support greenfield-contracts v0.0.9-alpha3");
     }
 
     function getMinRelayFee() external returns (uint256 amount) {
@@ -407,6 +407,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         _setFailureHandleStrategy(_failureHandleStrategy);
     }
 
+    function setTransferGasLimit(uint256 _transferGasLimit) external onlyRole(OPERATOR_ROLE) {
+        transferGasLimit = _transferGasLimit;
+    }
+
     /*----------------- internal functions -----------------*/
     function _buy(uint256 groupId, address refundAddress, uint256 amount) internal {
         address buyer = msg.sender;
@@ -503,8 +507,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
         if (_status == STATUS_SUCCESS) {
             uint256 feeRateAmount = (price * feeRate) / 10_000;
-            payable(fundWallet).transfer(feeRateAmount);
-            (bool success,) = payable(owner).call{gas: transferGasLimit, value: price - feeRateAmount}("");
+            (bool success,) = fundWallet.call{value: feeRateAmount}("");
+            require(success, "MarketPlace: transfer fee failed");
+            (success,) = owner.call{gas: transferGasLimit, value: price - feeRateAmount}("");
             if (!success) {
                 _unclaimedFunds[owner] += price - feeRateAmount;
             }
@@ -512,7 +517,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
             _updateSales(_tokenId);
             emit Buy(buyer, _tokenId);
         } else {
-            (bool success,) = payable(buyer).call{gas: transferGasLimit, value: price}("");
+            (bool success,) = buyer.call{gas: transferGasLimit, value: price}("");
             if (!success) {
                 _unclaimedFunds[buyer] += price;
             }

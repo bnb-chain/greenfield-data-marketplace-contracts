@@ -19,13 +19,10 @@ contract UpgradeScript is Script {
 
     address public proxyAdmin;
     address public proxyMarketPlace;
+    address public oldImplMarketPlace;
 
     function setUp() public {
-        uint256 privateKey = uint256(vm.envBytes32("OP_PRIVATE_KEY"));
-        operator = vm.addr(privateKey);
-        console.log("operator balance: %s", operator.balance / 1e18);
-
-        privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
+        uint256 privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
         initOwner = vm.addr(privateKey);
         console.log("init owner: %s", initOwner);
 
@@ -34,12 +31,15 @@ contract UpgradeScript is Script {
 
         proxyMarketPlace = vm.envAddress("PROXY_MP");
         console.log("proxyMarketPlace address: %s", proxyMarketPlace);
+
+        oldImplMarketPlace = vm.envAddress("IMPL_MP");
+        console.log("oldImplMarketPlace address: %s", oldImplMarketPlace);
     }
 
     function run() public {
         vm.startBroadcast(initOwner);
         Marketplace newImpl = new Marketplace();
-        require(address(newImpl) != proxyMarketPlace, "same impl address");
+        require(address(newImpl) != oldImplMarketPlace, "same impl address");
 
         (uint256 oldVersion,,) = IMarketplace(proxyMarketPlace).versionInfo();
         (uint256 newVersion,,) = newImpl.versionInfo();
