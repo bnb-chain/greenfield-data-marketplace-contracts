@@ -14,7 +14,7 @@ contract UpgradeScript is Script {
 
     address public crossChain;
     address public groupHub;
-    address public initOwner;
+    address public owner;
     address public fundWallet;
 
     address public proxyAdmin;
@@ -23,8 +23,8 @@ contract UpgradeScript is Script {
 
     function setUp() public {
         uint256 privateKey = uint256(vm.envBytes32("OWNER_PRIVATE_KEY"));
-        initOwner = vm.addr(privateKey);
-        console.log("init owner: %s", initOwner);
+        owner = vm.addr(privateKey);
+        console.log("init owner: %s", owner);
 
         proxyAdmin = vm.envAddress("PROXY_ADMIN");
         console.log("proxyAdmin address: %s", proxyAdmin);
@@ -37,7 +37,7 @@ contract UpgradeScript is Script {
     }
 
     function run() public {
-        vm.startBroadcast(initOwner);
+        vm.startBroadcast(owner);
         Marketplace newImpl = new Marketplace();
         require(address(newImpl) != oldImplMarketPlace, "same impl address");
 

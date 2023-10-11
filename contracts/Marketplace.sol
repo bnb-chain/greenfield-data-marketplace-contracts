@@ -215,7 +215,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         override
         returns (uint256 version, string memory name, string memory description)
     {
-        return (2, "MarketPlace", "support greenfield-contracts v0.0.9-alpha3");
+        return (2, "MarketPlace", "b1e2d2364271044a7d918cbfea985d131c12f0a6");
     }
 
     function getMinRelayFee() external returns (uint256 amount) {
