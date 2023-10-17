@@ -10,8 +10,10 @@ import "../contracts/interface/IMarketplace.sol";
 import {Marketplace} from "../contracts/Marketplace.sol";
 
 contract UpgradeScript is Script {
+    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+
     address public owner;
-    address public fundWallet;
+    address public newOwner;
 
     address public proxyAdmin;
     address public proxyMarketPlace;
@@ -28,21 +30,14 @@ contract UpgradeScript is Script {
         proxyMarketPlace = vm.envAddress("PROXY_MP");
         console.log("proxyMarketPlace address: %s", proxyMarketPlace);
 
-        oldImplMarketPlace = vm.envAddress("IMPL_MP");
-        console.log("oldImplMarketPlace address: %s", oldImplMarketPlace);
+        newOwner = vm.envAddress("NEW_OWNER");
+        console.log("newOwner address: %s", newOwner);
     }
 
     function run() public {
         vm.startBroadcast(owner);
-        Marketplace newImpl = new Marketplace();
-        require(address(newImpl) != oldImplMarketPlace, "same impl address");
-
-        (uint256 oldVersion,,) = IMarketplace(proxyMarketPlace).versionInfo();
-        (uint256 newVersion,,) = newImpl.versionInfo();
-        require(oldVersion < newVersion, "new version must be greater than old version");
-        ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(proxyMarketPlace), address(newImpl));
+        IMarketplace(proxyMarketPlace).grantRole(DEFAULT_ADMIN_ROLE, newOwner);
+        ProxyAdmin(proxyAdmin).transferOwnership(newOwner);
         vm.stopBroadcast();
-
-        console.log("new implMarketPlace address: %s", address(newImpl));
     }
 }
